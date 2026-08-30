@@ -49,41 +49,17 @@ GitHub renders these directly -- no image files needed.
 
 ### 1. System architecture -- the three planes
 
-Rendered top-to-bottom, not left-to-right, so it stays readable in a narrow
-column instead of shrinking to fit full width.
+Deliberately kept to 5 boxes -- the fine-grained detail (every gate, every
+agent) is in the prose below and in `ARCHITECTURE.md`; this is the shape,
+not the full breakdown.
 
 ```mermaid
 flowchart TB
-    A["Detector"] --> B["Diagnostician"]
-    B --> C["Strategist"]
-    C --> D["Composer"]
-    D --> E["Critic"]
-    E --> F["14 Gates (5 core + 9 RBI)"]
-    F --> G["mint_capability()"]
-    G --> H["CapabilityToken"]
-    H --> I["Outbox"]
-    I --> J["Channel Adapters"]
-    I --> K["Razorpay Client (verified live)"]
-    G --> L["Hash-chained Audit Ledger"]
-    I --> L
-
-    subgraph DECISION["DECISION PLANE -- LLM allowed, not default"]
-        A
-        B
-        C
-        D
-        E
-    end
-    subgraph CONTROL["CONTROL PLANE -- 100% deterministic, zero LLM"]
-        F
-        G
-    end
-    subgraph EXECUTION["EXECUTION PLANE"]
-        H
-        I
-        J
-        K
-    end
+    A["Decision Plane<br/>Detector to Critic -- LLM allowed, not default"] --> B["Control Plane<br/>14 gates, 100% deterministic"]
+    B --> C["CapabilityToken<br/>single-use, 5-min TTL"]
+    C --> D["Execution Plane<br/>Outbox, Channels, Razorpay client"]
+    B --> E["Audit Ledger<br/>hash-chained"]
+    D --> E
 ```
 
 The one rule everything else depends on: **the Decision plane's output is
@@ -93,29 +69,19 @@ re-derived against ground truth before anything real happens. See
 
 ### 2. System design -- real request flow, one case
 
-Same reasoning as above -- a sequence diagram with 8 side-by-side lanes
-shrinks badly in a narrow column, so this is a top-to-bottom flowchart with
-explicit decision points instead. Same real logic as `ARCHITECTURE.md`.
+Same real logic as `ARCHITECTURE.md`, condensed to 8 boxes with one
+decision point (did every gate pass) rather than every intermediate step.
 
 ```mermaid
 flowchart TB
-    W["Razorpay Webhook (payment.failed / subscription.halted)"] --> D["Detector"]
-    D --> Dx["Diagnostician (real error_reason)"]
-    Dx --> T1{"Tier 1 resolves? (25 real mappings)"}
-    T1 -->|"Yes, ~97% confidence"| RC["root_cause"]
-    T1 -->|"Ambiguous"| T2["Tier 2: free stub (default) or live LLM (opt-in, never automatic)"]
-    T2 --> RC
-    RC --> S["Strategist (ProposedAction)"]
-    S --> CP["Control Plane (run all 14 gates independently)"]
-    CP --> G{"All gates pass?"}
-    G -->|"Yes"| Grant["Audit: grant"]
-    Grant --> Token["CapabilityToken (single-use, 5-min TTL)"]
-    Token --> O["Outbox"]
-    O --> R["Razorpay API (real Payment Link execute)"]
-    R --> Exec["Audit: execute"]
-    G -->|"No"| Block["Audit: block (real failed_gate + reason)"]
-    Exec --> Dash["Frontend Dashboard"]
-    Block --> Dash
+    A["Webhook<br/>payment.failed / subscription.halted"] --> B["Diagnostician<br/>real error_reason, Tier 1 or Tier 2"]
+    B --> C["Strategist<br/>ProposedAction"]
+    C --> D["Control Plane<br/>14 gates, independent"]
+    D -->|"Pass"| E["CapabilityToken -> Outbox -> Razorpay<br/>real Payment Link execute"]
+    D -->|"Fail"| F["Audit: block<br/>real failed_gate + reason"]
+    E --> G["Audit: execute"]
+    G --> H["Frontend Dashboard"]
+    F --> H
 ```
 
 ### 3. Class diagram -- real ORM models, `is-a` / `has-a`
