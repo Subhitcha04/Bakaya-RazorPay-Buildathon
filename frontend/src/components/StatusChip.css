@@ -1,0 +1,45 @@
+﻿.status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px 3px 8px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  animation: scale-in var(--dur-base) var(--ease-spring);
+}
+
+.status-chip-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.chip-allow {
+  background: rgba(34, 201, 141, 0.14);
+  color: var(--mint-500);
+  border: 1px solid rgba(34, 201, 141, 0.28);
+}
+.chip-allow .status-chip-dot { background: var(--mint-500); box-shadow: 0 0 6px var(--mint-glow); }
+
+.chip-block {
+  background: rgba(255, 92, 114, 0.12);
+  color: var(--coral-500);
+  border: 1px solid rgba(255, 92, 114, 0.28);
+}
+.chip-block .status-chip-dot { background: var(--coral-500); box-shadow: 0 0 6px var(--coral-glow); }
+
+.chip-escalate {
+  background: rgba(255, 176, 32, 0.12);
+  color: var(--amber-400);
+  border: 1px solid rgba(255, 176, 32, 0.28);
+}
+.chip-escalate .status-chip-dot { background: var(--amber-400); box-shadow: 0 0 6px var(--amber-glow); }
+
+.chip-holdout {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--ink-400);
+  border: 1px solid var(--navy-600);
+}
+.chip-holdout .status-chip-dot { background: var(--ink-600); }

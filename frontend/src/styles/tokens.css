@@ -1,0 +1,83 @@
+﻿/*
+  Bakaya design tokens.
+
+  Palette is grounded in Razorpay's actual brand: #0C2451 (their dark
+  navy) and #3395FF (their signature blue) are Razorpay's own colors,
+  not an approximation -- everything else is built around those two
+  as anchors. This isn't a marketing page; it's a control-room
+  instrument for a system that moves real money, so the palette stays
+  dark, quiet, and technical, with color reserved for meaning:
+  mint = allowed/recovered, coral = blocked/danger, amber = pending
+  human review. Nothing decorative gets a bright color.
+*/
+
+:root {
+  /* ---- surfaces ---- */
+  --navy-950: #060b18;
+  --navy-900: #0c2451;
+  --navy-800: #12305f;
+  --navy-700: #1a3d73;
+  --navy-600: #2a4f8f;
+
+  /* ---- brand ---- */
+  --blue-500: #3395ff;
+  --blue-400: #5cabff;
+  --blue-300: #8fc1ff;
+  --blue-glow: rgba(51, 149, 255, 0.35);
+
+  /* ---- semantic ---- */
+  --mint-500: #22c98d;
+  --mint-glow: rgba(34, 201, 141, 0.3);
+  --coral-500: #ff5c72;
+  --coral-glow: rgba(255, 92, 114, 0.32);
+  --amber-400: #ffb020;
+  --amber-glow: rgba(255, 176, 32, 0.3);
+
+  /* ---- ink ---- */
+  --ink-100: #eaf0fb;
+  --ink-300: #b9c6e3;
+  --ink-400: #8ca0c7;
+  --ink-600: #5b6d92;
+
+  /* ---- type ---- */
+  --font-mono: "JetBrains Mono", "SF Mono", Consolas, monospace;
+  --font-sans: "Inter", -apple-system, "Segoe UI", sans-serif;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.9375rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.5rem;
+  --text-2xl: 2.25rem;
+
+  /* ---- spacing / shape ---- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-8: 48px;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+
+  /* ---- motion ---- */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --dur-fast: 150ms;
+  --dur-base: 320ms;
+  --dur-slow: 560ms;
+
+  --sidebar-width: 248px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

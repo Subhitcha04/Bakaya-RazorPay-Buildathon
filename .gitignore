@@ -1,0 +1,53 @@
+﻿# ---- Python ----
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# ---- Secrets / environment ----
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# ---- Databases (local dev artifacts, not source) ----
+*.db
+*.sqlite
+*.sqlite3
+
+# ---- Node / frontend ----
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ---- Build / output artifacts ----
+dist/
+build/
+*.egg-info/
+
+# ---- OS / editor cruft ----
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+
+# ---- Logs and local run artifacts ----
+*.log
+results/*.tmp

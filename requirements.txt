@@ -1,0 +1,12 @@
+# Core -- required to run the test suite and the API server.
+fastapi
+sqlalchemy
+pydantic
+pytest
+uvicorn
+
+# Optional -- only required for the two scripts that make real,
+# optional live API calls (see EVALUATION.md section 3). Everything
+# else in this project runs without either of these.
+requests    # scripts/smoke_test_razorpay.py
+openai      # scripts/compare_llm_diagnosis.py (Groq's API is OpenAI-schema-compatible)
