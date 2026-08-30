@@ -49,26 +49,41 @@ GitHub renders these directly -- no image files needed.
 
 ### 1. System architecture -- the three planes
 
-```mermaid
-flowchart LR
-    subgraph DP["DECISION PLANE -- LLM allowed, not default"]
-        direction TB
-        Detector --> Diagnostician --> Strategist --> Composer --> Critic
-    end
-    subgraph CP["CONTROL PLANE -- 100% deterministic, zero LLM"]
-        direction TB
-        Gates["14 gates (5 core + 9 RBI)"] --> Mint["mint_capability()"]
-    end
-    subgraph EP["EXECUTION PLANE"]
-        direction TB
-        Outbox["Outbox (FOR UPDATE SKIP LOCKED)"] --> Channels["Channel adapters"]
-        Outbox --> Razorpay["Razorpay client (verified live)"]
-    end
+Rendered top-to-bottom, not left-to-right, so it stays readable in a narrow
+column instead of shrinking to fit full width.
 
-    Composer -->|"ProposedAction"| Gates
-    Mint -->|"CapabilityToken"| Outbox
-    Mint --> Audit["Hash-chained Audit Ledger"]
-    Outbox --> Audit
+```mermaid
+flowchart TB
+    A["Detector"] --> B["Diagnostician"]
+    B --> C["Strategist"]
+    C --> D["Composer"]
+    D --> E["Critic"]
+    E --> F["14 Gates (5 core + 9 RBI)"]
+    F --> G["mint_capability()"]
+    G --> H["CapabilityToken"]
+    H --> I["Outbox"]
+    I --> J["Channel Adapters"]
+    I --> K["Razorpay Client (verified live)"]
+    G --> L["Hash-chained Audit Ledger"]
+    I --> L
+
+    subgraph DECISION["DECISION PLANE -- LLM allowed, not default"]
+        A
+        B
+        C
+        D
+        E
+    end
+    subgraph CONTROL["CONTROL PLANE -- 100% deterministic, zero LLM"]
+        F
+        G
+    end
+    subgraph EXECUTION["EXECUTION PLANE"]
+        H
+        I
+        J
+        K
+    end
 ```
 
 The one rule everything else depends on: **the Decision plane's output is
@@ -78,37 +93,29 @@ re-derived against ground truth before anything real happens. See
 
 ### 2. System design -- real request flow, one case
 
-```mermaid
-sequenceDiagram
-    participant W as Razorpay Webhook
-    participant D as Detector
-    participant Dx as Diagnostician
-    participant S as Strategist
-    participant CP as Control Plane (14 gates)
-    participant O as Outbox
-    participant R as Razorpay API
-    participant A as Audit Ledger
-    participant F as Frontend Dashboard
+Same reasoning as above -- a sequence diagram with 8 side-by-side lanes
+shrinks badly in a narrow column, so this is a top-to-bottom flowchart with
+explicit decision points instead. Same real logic as `ARCHITECTURE.md`.
 
-    W->>D: payment.failed / subscription.halted
-    D->>Dx: DiagnosticInput (real error_reason)
-    alt Tier 1 resolves (25 real mappings)
-        Dx-->>S: root_cause, ~97% confidence
-    else Ambiguous
-        Dx->>Dx: Tier 2 -- free stub (default) or live LLM (opt-in, never automatic)
-        Dx-->>S: root_cause
-    end
-    S->>CP: ProposedAction (ladder level, channel, amount)
-    CP->>CP: run all 14 gates independently
-    alt All gates pass
-        CP->>A: audit "grant"
-        CP-->>O: CapabilityToken (single-use, 5-min TTL)
-        O->>R: execute (real Payment Link API)
-        O->>A: audit "execute"
-    else Any gate fails
-        CP->>A: audit "block" (real failed_gate + reason)
-    end
-    F->>A: case detail (real SHA-256 hash, indexed lookup)
+```mermaid
+flowchart TB
+    W["Razorpay Webhook (payment.failed / subscription.halted)"] --> D["Detector"]
+    D --> Dx["Diagnostician (real error_reason)"]
+    Dx --> T1{"Tier 1 resolves? (25 real mappings)"}
+    T1 -->|"Yes, ~97% confidence"| RC["root_cause"]
+    T1 -->|"Ambiguous"| T2["Tier 2: free stub (default) or live LLM (opt-in, never automatic)"]
+    T2 --> RC
+    RC --> S["Strategist (ProposedAction)"]
+    S --> CP["Control Plane (run all 14 gates independently)"]
+    CP --> G{"All gates pass?"}
+    G -->|"Yes"| Grant["Audit: grant"]
+    Grant --> Token["CapabilityToken (single-use, 5-min TTL)"]
+    Token --> O["Outbox"]
+    O --> R["Razorpay API (real Payment Link execute)"]
+    R --> Exec["Audit: execute"]
+    G -->|"No"| Block["Audit: block (real failed_gate + reason)"]
+    Exec --> Dash["Frontend Dashboard"]
+    Block --> Dash
 ```
 
 ### 3. Class diagram -- real ORM models, `is-a` / `has-a`
