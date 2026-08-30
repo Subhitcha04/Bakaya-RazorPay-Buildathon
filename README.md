@@ -42,6 +42,119 @@ merchant with real transaction volume, which this project does not have.
 Every recovery-lift number in `EVALUATION.md` is reported with that caveat
 attached explicitly, every time.
 
+## Diagrams (for a fast skim)
+
+Three real diagrams, generated from the actual codebase, not aspirational.
+GitHub renders these directly -- no image files needed.
+
+### 1. System architecture -- the three planes
+
+```mermaid
+flowchart LR
+    subgraph DP["DECISION PLANE -- LLM allowed, not default"]
+        direction TB
+        Detector --> Diagnostician --> Strategist --> Composer --> Critic
+    end
+    subgraph CP["CONTROL PLANE -- 100% deterministic, zero LLM"]
+        direction TB
+        Gates["14 gates (5 core + 9 RBI)"] --> Mint["mint_capability()"]
+    end
+    subgraph EP["EXECUTION PLANE"]
+        direction TB
+        Outbox["Outbox (FOR UPDATE SKIP LOCKED)"] --> Channels["Channel adapters"]
+        Outbox --> Razorpay["Razorpay client (verified live)"]
+    end
+
+    Composer -->|"ProposedAction"| Gates
+    Mint -->|"CapabilityToken"| Outbox
+    Mint --> Audit["Hash-chained Audit Ledger"]
+    Outbox --> Audit
+```
+
+The one rule everything else depends on: **the Decision plane's output is
+never trusted by the Control plane.** Every proposal is independently
+re-derived against ground truth before anything real happens. See
+`ARCHITECTURE.md` for the full breakdown of every gate and agent.
+
+### 2. System design -- real request flow, one case
+
+```mermaid
+sequenceDiagram
+    participant W as Razorpay Webhook
+    participant D as Detector
+    participant Dx as Diagnostician
+    participant S as Strategist
+    participant CP as Control Plane (14 gates)
+    participant O as Outbox
+    participant R as Razorpay API
+    participant A as Audit Ledger
+    participant F as Frontend Dashboard
+
+    W->>D: payment.failed / subscription.halted
+    D->>Dx: DiagnosticInput (real error_reason)
+    alt Tier 1 resolves (25 real mappings)
+        Dx-->>S: root_cause, ~97% confidence
+    else Ambiguous
+        Dx->>Dx: Tier 2 -- free stub (default) or live LLM (opt-in, never automatic)
+        Dx-->>S: root_cause
+    end
+    S->>CP: ProposedAction (ladder level, channel, amount)
+    CP->>CP: run all 14 gates independently
+    alt All gates pass
+        CP->>A: audit "grant"
+        CP-->>O: CapabilityToken (single-use, 5-min TTL)
+        O->>R: execute (real Payment Link API)
+        O->>A: audit "execute"
+    else Any gate fails
+        CP->>A: audit "block" (real failed_gate + reason)
+    end
+    F->>A: case detail (real SHA-256 hash, indexed lookup)
+```
+
+### 3. Class diagram -- real ORM models, `is-a` / `has-a`
+
+Every model in `app/models/` inherits from `Base` (SQLAlchemy's declarative
+base, `is-a`) and mixes in `TimestampMixin` for `created_at` -- shown once
+in full below, then abbreviated for the rest to stay scannable. No cascade
+deletes are configured anywhere in this schema, so every relationship below
+is a real foreign key (`has-a`), not a claimed ownership/lifecycle bond.
+10 of the real 18 models are shown -- `Consent`, `Suppression`, `CostEntry`,
+`Experiment`, `ContactBudgetLedger`, `ModelVersion`, `InboundEvent`, and
+`FailureEvent` are omitted here for scannability, not hidden (see
+`app/models/*.py` for all 18).
+
+```mermaid
+classDiagram
+    class Base { <<abstract>> }
+    class TimestampMixin { <<mixin>> +created_at: datetime }
+
+    Base <|-- RiskCase
+    TimestampMixin <|-- RiskCase
+    Base <|-- Merchant
+    Base <|-- Customer
+    Base <|-- Diagnosis
+    Base <|-- ProposedAction
+    Base <|-- PolicyDecision
+    Base <|-- CapabilityToken
+    Base <|-- InterventionAttempt
+    Base <|-- Outcome
+    Base <|-- AuditEntry
+
+    Customer "many" --> "1" Merchant : has-a
+    RiskCase "many" --> "1" Merchant : has-a
+    RiskCase "many" --> "1" Customer : has-a
+    Diagnosis "1" --> "1" RiskCase : has-a
+    ProposedAction "1" --> "1" RiskCase : has-a
+    PolicyDecision "1" --> "1" ProposedAction : has-a
+    CapabilityToken "1" --> "1" RiskCase : has-a
+    CapabilityToken "many" --> "1" Merchant : has-a
+    InterventionAttempt "1" --> "1" RiskCase : has-a
+    InterventionAttempt "1" --> "1" CapabilityToken : has-a
+    Outcome "1" --> "1" RiskCase : has-a
+    Outcome "0..1" --> "1" InterventionAttempt : has-a
+    AuditEntry "0..1" --> "1" RiskCase : has-a
+```
+
 ## Architecture, in one paragraph
 
 Three planes, strictly separated. The **Decision plane** (Detector ->
@@ -79,7 +192,7 @@ app/
   webhooks/       Razorpay webhook handler (HMAC verification)
 frontend/         React + Vite dashboard, reads real data via app/api/server.py
 scripts/          Batch runner, ablation, calibration, seeding, live smoke tests
-tests/            334 tests
+tests/            351 tests
 ```
 
 ## Quick verification (5 minutes, no setup beyond Python)
@@ -92,7 +205,7 @@ pip install -r requirements.txt
 python -m pytest tests/ -q
 ```
 
-Expect **334 passed**, zero failures, zero network calls, zero API keys
+Expect **351 passed**, zero failures, zero network calls, zero API keys
 required. This is deliberate: everything that can be verified without live
 credentials is designed to be verified without live credentials.
 
@@ -122,32 +235,32 @@ a real SHA-256 hash from the audit ledger for any ALLOW or BLOCK decision.
 Every command below is free and requires no API key:
 
 ```
-python -m pytest tests/ -q                          # 334 tests
+python -m pytest tests/ -q                          # 351 tests
 python run_batch.py --n 1000 --seed 20260901         # headline batch result
 python scripts/ablation_arms.py --n 1000 --seed 20260901   # 4-arm ablation + oracle ceiling
 python scripts/calibration_report.py                 # confidence calibration bands
 python scripts/stability_sweep.py --n 300 --seeds 20 # stability across seeds
 python scripts/mutate_gates.py                       # mutation testing (14 gates)
-python -m pytest tests/test_redteam.py -v            # 15-attack red-team suite
-python -m pytest tests/test_adversarial_policy.py -v  # 20-attack adversarial policy
+python -m pytest tests/test_redteam.py -v             # 15-attack red-team suite
+python -m pytest tests/test_adversarial_policy.py -v  # 24 proposals, 5 scenarios
 ```
 
 Two commands require live credentials and are optional -- see
 `EVALUATION.md` section 3 for what each one verified:
 
 ```
-python scripts/compare_llm_diagnosis.py      # requires GROQ_API_KEY, ~7.5 min, real cost (fractions of a cent)
+python scripts/compare_llm_diagnosis.py     # requires GROQ_API_KEY, ~7.5 min, real cost (fractions of a cent)
 python scripts/smoke_test_razorpay.py       # requires RAZORPAY_KEY_ID/SECRET (test mode), free
 ```
 
 ## Headline numbers (see EVALUATION.md for full context on every one)
 
-- **334 tests passing**, zero flaky, zero requiring live credentials
+- **351 tests passing**, zero flaky, zero requiring live credentials
 - **64.0% diagnosis accuracy** (deterministic stub, free path) -- **94.0%**
   with the live LLM path enabled (not the default; EVALUATION.md section 2)
 - **14/14 control-plane gates** independently confirmed to actually block
   when disabled (mutation testing, EVALUATION.md section 4.1)
-- **0 of 15 red-team attacks succeeded**; 0 of 20 adversarial-policy attacks
+- **0 of 15 red-team attacks succeeded**; 0 of 24 adversarial-policy attacks
   succeeded (EVALUATION.md sections 4.2-4.3)
 - **9 real bugs found and fixed** during evaluation itself, documented in
   full in EVALUATION.md section 5 -- including two genuine surprises found
@@ -171,8 +284,8 @@ All complete:
 - `COMPLIANCE.md` -- all 9 RBI-derived gates, their real thresholds, and
   the honest distinction between "tested and blocking" versus
   "circular clause independently verified"
-- `SECURITY.md` -- the 15-attack red-team suite and 20-attack
-  adversarial-policy suite, both with real, current results
+- `SECURITY.md` -- the 15-attack red-team suite and the 24-proposal,
+  5-scenario adversarial-policy suite, both with real, current results
 - `RUNBOOK.md` -- operational procedures, grounded in real failure modes
   this project's own development actually hit
 - `SCALE.md` -- what's real (indexes, the outbox pattern) versus what
